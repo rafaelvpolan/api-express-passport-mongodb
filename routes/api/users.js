@@ -6,10 +6,13 @@ const auth = require('../auth');
 const mongodb = require('../../config/mongodb');
 const Admin = mongodb.setDb('admin');
 
+
+
+
 const Users = Admin.model('Users');
 
 //POST new user route (optional, everyone has access)
-router.post('/', auth.optional, (req, res, next) => {
+router.post('/', auth.optional, async (req, res, next) => {
   const { body: { user } } = req;
 
   if(!user.email) {
@@ -19,7 +22,7 @@ router.post('/', auth.optional, (req, res, next) => {
       },
     });
   }
-
+ 
   if(!user.password) {
     return res.status(422).json({
       errors: {
@@ -33,7 +36,7 @@ router.post('/', auth.optional, (req, res, next) => {
   const email = user.email = user.email.toLowerCase();
   const password = user.password;
 
-  return Users.findOne({ email })
+  return await Users.findOne({ email })
   .then((user) => {
     if(user) {
 
@@ -59,7 +62,7 @@ router.post('/', auth.optional, (req, res, next) => {
 });
 
 //POST login route (optional, everyone has access)
-router.post('/login', auth.optional, (req, res, next) => {
+router.post('/login', auth.optional, async (req, res, next) => {
   const { body: { user } } = req;
 
   if(!user.email) {
@@ -90,26 +93,43 @@ router.post('/login', auth.optional, (req, res, next) => {
       return res.json({ user: user.toAuthJSON() });
     }
 
-    return status(400).info;
+    return res.status(400).info;
   })(req, res, next);
 });
 
 //GET current route (required, only authenticated users have access)
-router.get('/current', auth.required, (req, res, next) => {
-  const { payload: { id } } = req;
+router.get('/current', auth.required, async (req, res, next) => {
 
-  console.log('req',id);
+
+  // console.log('SESSION ', req.session);
+  // console.log('SESSION ID', req.sessionID);
+
+  const { payload: { id } } = req;
 
   return Users.findById(id)
     .then((user) => {
-      if(!user) {
-        return res.status(200).json({message:'user nao logado'});
-      }
+      if(!user) 
+        return res.status(200).json({message:'User não existe!'});      
 
       return res.json({ user: user.toAuthJSON() });
     }).catch((err)=>{
       return res.json(err);
     })
+});
+
+router.get('/logout', (req, res, next) => {
+
+ 
+  if(req.session){   
+    req.session.destroy();
+    res.status(200).json({
+      message:'Api expired',
+      actions:[{name:'redirect',value:'/login'}]
+    });
+  }else{
+    res.sendStatus(200);
+  }
+ 
 });
 
 module.exports = router;
