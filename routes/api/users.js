@@ -1,13 +1,9 @@
-
 const mongoose = require('mongoose');
 const passport = require('passport');
 const router = require('express').Router();
 const auth = require('../auth');
 const mongodb = require('../../config/mongodb');
 const Admin = mongodb.setDb('admin');
-
-
-
 
 const Users = Admin.model('Users');
 
@@ -103,7 +99,7 @@ router.get('/current', auth.required, async (req, res, next) => {
 
   // console.log('SESSION ', req.session);
   // console.log('SESSION ID', req.sessionID);
-
+  
   const { payload: { id } } = req;
 
   return Users.findById(id)
@@ -113,22 +109,26 @@ router.get('/current', auth.required, async (req, res, next) => {
 
       return res.json({ user: user.toAuthJSON() });
     }).catch((err)=>{
-      return res.json(err);
+      return res.send(err);
     })
 });
 
 router.get('/logout', (req, res, next) => {
 
- 
+  res.type('application/json')
+
   if(req.session){   
+    
     req.session.destroy();
+    
     res.status(200).json({
-      message:'Api expired',
+      message:'User logout',
       actions:[{name:'redirect',value:'/login'}]
     });
-  }else{
-    res.sendStatus(200);
+
+
   }
+
  
 });
 

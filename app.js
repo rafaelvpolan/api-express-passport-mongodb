@@ -27,49 +27,51 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '/')));
 
-const redisOptions = {
+const store = new RedisStore({
   client: clientRedis,
   url  : process.env.REDIS_URL,
   host  : process.env.REDIS_HOST,
   port  : process.env.REDIS_PORT
-}
-const store = new RedisStore(redisOptions);
-const sessionOptions = { 
+});
+
+app.use(session( { 
   store: store,
   genid:()=>uuid(),
-  secret: 'api-express-pass-mdb', 
-  cookie: { maxAge:600000, expires:300000 },
+  secret: process.env.SESSION_SECRET, 
+  cookie: { maxAge:3600000 },
+  rolling:true,
   resave: false,
   saveUninitialized: true
-} 
-app.use(session(sessionOptions));
-app.use( (req, res, next)=> {
+}));
 
+app.use((req, res, next)=> {
 
-  // console.log('SESSIDDD',req.sessionID);
-  if(req.session && (req.path !=='/api/users/login')){
+  if(req.sessionID && (req.path !=='/api/users/login')){
 
-    store.get(req.sessionID,(err,sess)=>{
+    return store.get(req.sessionID,(err,sess)=>{
       if(err)
         next(new Error('Erro server'));
-
-      if (!req.session || !sess) {        
-        if(req.session) req.session.destroy();        
-        return next(new Error('oh no')) // handle error
-        // res.status(200).json({
-        //   message:'Api expired',
-        //   actions:[{name:'redirect',value:'/login'}]
-        // });
-       
-      }
-    });
       
-  
+      if (!sess) {        
+        if(req.session) req.session.destroy();        
+        // return next(new Error('oh no')) // handle error
+        return res.status(200).json({
+          message:'Api expirated!',
+          actions:[{name:'redirect',value:'/login'}]
+        }).end();
+      
+      }else{       
+        next();
+      }
+    });      
+    
+  }else{
+
+    next();
   }
-  next()
-  
-  
+
 })
+
 if(!isProduction) {
   app.use(errorHandler());
 }
@@ -97,6 +99,7 @@ if(!isProduction) {
 }
 
 app.use((err, req, res) => {
+if(err){
   res.status(err.status || 500);
 
   res.json({
@@ -105,6 +108,11 @@ app.use((err, req, res) => {
       error: {},
     },
   });
+}
 });
+
+
+
+
 
 app.listen(8000, () => console.log('Server running on http://localhost:8000/'));
